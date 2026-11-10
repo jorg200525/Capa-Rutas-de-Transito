@@ -1,0 +1,10 @@
+{
+  "titulo": "Rutas de Tránsito en Distribuidora PMA",
+  "descripcion": "una capacitación sobre las rutas de tránsito en Distribuidora PMA EIRL (CDA Chimbote): peatones y vehículos, reglas de control de tráfico, reglas que salvan vidas e identificación de peligros y riesgos",
+  "publico": "todo el personal de la distribuidora: peatones, conductores de camiones (T1, T2), operadores de montacargas y visitantes",
+  "vocabulario": "rutas de tránsito, peatón, línea peatonal, senderos peatonales, preferencia de paso, CDA, T1, T2, montacargas, carretillas elevadoras, chaleco con cinta reflectiva, espejos panorámicos, zonas seguras, puntos ciegos, cinturón de seguridad, atropello, aplastamiento, aprisionamiento, Call to Action, Reglas de Oro, reglas que salvan vidas, Distribuidora PMA, Chimbote, SSO, EPP, 10 kilómetros por hora",
+  "boton_extra": {
+    "etiqueta": "🚶 ¿Quién tiene preferencia y a qué velocidad?",
+    "pregunta": "¿Quién tiene la preferencia de paso y cuál es la velocidad máxima dentro de las instalaciones?"
+  }
+}

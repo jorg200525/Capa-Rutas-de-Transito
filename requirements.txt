@@ -1,0 +1,9 @@
+streamlit
+ollama
+gTTS
+edge-tts
+SpeechRecognition
+streamlit-mic-recorder
+faster-whisper
+numpy
+pyttsx3
