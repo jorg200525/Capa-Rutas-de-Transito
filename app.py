@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import ollama
+from groq import Groq  # <-- CAMBIO: Reemplazamos ollama por groq
 from gtts import gTTS
 import speech_recognition as sr
 from streamlit_mic_recorder import mic_recorder
@@ -39,8 +39,10 @@ st.set_page_config(page_title="Aula Virtual SST", layout="wide", page_icon="🎓
 CARPETA_CURSOS = BASE / "cursos"         # una subcarpeta por curso: curso.json + guiones.json + laminas/
 CARPETA_AUDIO = BASE / "audio_cache"     # el audio de cada lámina se guarda aquí (se genera 1 sola vez)
 
-MODELO = "qwen2.5:3b"      # para el asistente de dudas. Si va lento: "qwen2.5:1.5b"
-NUM_CTX = 4096
+# --- CONFIGURACIÓN DE GROQ ---
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY_RUTAS") # Lee la llave desde los secretos de GitHub Codespaces 
+MODELO = "openai/gpt-oss-20b" # Modelo de Groq. También puedes usar "mixtral-8x7b-32768" 
+
 STT_MOTOR = "whisper"      # voz -> texto: "whisper" (offline) | "google" (online)
 WHISPER_MODELO = "small"    # "base" (rápido, menos preciso) | "small" (recomendado) | "medium" (lento en CPU)
 TTS_MOTOR = "edge"         # texto -> voz: "edge" (online, natural) | "gtts" | "pyttsx3" (offline)
@@ -308,7 +310,7 @@ def transcribir_audio(audio_bytes: bytes):
 
 
 # =======================================================
-# ASISTENTE DE DUDAS (OLLAMA)
+# ASISTENTE DE DUDAS (GROQ API)
 # =======================================================
 SYSTEM_PROMPT_BASE = """Eres el Profesor Jorge, instructor de Seguridad y Salud en el Trabajo (SST) en Perú.
 Dictas {descripcion}, dirigida a: {publico}.
@@ -322,8 +324,6 @@ REGLAS ESTRICTAS:
 - Sé cordial, respetuoso y pedagógico. Termina con una pregunta corta."""
 
 SYSTEM_PROMPT = SYSTEM_PROMPT_BASE.format(descripcion=CURSO["descripcion"], publico=CURSO["publico"])
-
-OPCIONES_LLM = {"temperature": 0.1, "num_predict": 200, "num_ctx": NUM_CTX}
 
 _STOP = set("""de la el los las un una unos unas y o a en por para con sin que se es son al del lo le les su sus mi me te nos
 como mas muy si no ni ya hay esta este esto esa ese eso estos estas cual cuales cuando donde quien quienes porque
@@ -371,20 +371,46 @@ def construir_mensajes(pregunta: str, n: int, historial: list) -> list:
 
 
 def stream_profesor(pregunta: str, n: int, historial: list):
-    for chunk in ollama.chat(model=MODELO, messages=construir_mensajes(pregunta, n, historial),
-                             stream=True, keep_alive="30m", options=OPCIONES_LLM):
-        yield chunk["message"]["content"]
+    if not GROQ_API_KEY:
+        yield "Error: Falta configurar la API Key de Groq en los Secrets de Codespaces."
+        return
 
-
-def verificar_ollama():
+    client = Groq()
+    mensajes = construir_mensajes(pregunta, n, historial)
+    
     try:
-        ollama.show(MODELO)
+        # Llamada a la API de Groq con streaming
+        stream = client.chat.completions.create(
+            messages=mensajes,
+            model=MODELO,
+            temperature=0.1,
+            max_tokens=200,
+            stream=True
+        )
+        
+        for chunk in stream:
+            contenido = chunk.choices[0].delta.content
+            if contenido:
+                yield contenido
+    except Exception as e:
+        yield f"Error al conectar con la IA de Groq: {e}"
+
+
+def verificar_groq():
+    if not GROQ_API_KEY:
+        return "Falta la API Key de Groq. Ve a Settings > Secrets and variables > Codespaces y crea el secreto GROQ_API_KEY."
+    
+    try:
+        client = Groq() 
+        # Petición mínima para comprobar que la llave es válida
+        client.chat.completions.create(
+            messages=[{"role": "user", "content": "Hola"}],
+            model=MODELO,
+            max_tokens=5
+        )
         return None
     except Exception as e:
-        t = str(e).lower()
-        if "not found" in t or "404" in t:
-            return f"Falta descargar el modelo del asistente. En una terminal ejecuta:  ollama pull {MODELO}"
-        return "No puedo conectar con Ollama. Ábrelo (o ejecuta `ollama serve`) y recarga la página."
+        return f"No puedo conectar con la API de Groq. Revisa tu API Key o tu conexión a internet. (Error: {e})"
 
 
 # =======================================================
@@ -407,7 +433,7 @@ def init_estado():
         "autoplay_pendiente": False,
         "historial": saludo_inicial(),
         "responder_pendiente": False,
-        "ollama_ok": False,
+        "groq_ok": False,          # <-- CAMBIO: Reemplazado ollama_ok por groq_ok
         "proyector": False,
         "borrador": None,      # pregunta transcrita por voz, pendiente de confirmar
         "borrador_edit": "",
@@ -586,12 +612,12 @@ if not proy:
 if not proy:
     st.title(f"🎓 Aula Virtual SST — {CURSO['titulo']}")
 
-if not proy and not st.session_state.ollama_ok:
-    err = verificar_ollama()
+if not proy and not st.session_state.get("groq_ok"):
+    err = verificar_groq()
     if err:
-        st.error(err + "\n\n(La clase dictada funciona sin Ollama, pero el asistente de dudas no.)")
+        st.error(err + "\n\n(La clase dictada funciona sin la IA, pero el asistente de dudas no.)")
     else:
-        st.session_state.ollama_ok = True
+        st.session_state.groq_ok = True
 
 # ---- Barra lateral ----
 with st.sidebar:
@@ -631,7 +657,7 @@ with st.sidebar:
             audio_de_texto(g["guion"])
         prog.empty()
         st.rerun()
-    st.caption(f"Asistente: `{MODELO}` · Voz→texto: `{STT_MOTOR}` · Texto→voz: `{TTS_MOTOR}`")
+    st.caption(f"Asistente: Groq (`{MODELO}`) · Voz→texto: `{STT_MOTOR}` · Texto→voz: `{TTS_MOTOR}`")
 
 chat_box = None
 resp_box = None
@@ -769,7 +795,7 @@ if chat_box is not None:
                 try:
                     respuesta = st.write_stream(stream_profesor(pregunta, st.session_state.slide, contexto))
                 except Exception as e:
-                    respuesta = f"El asistente no está disponible. Verifica que Ollama esté abierto. ({e})"
+                    respuesta = f"El asistente no está disponible. Revisa tu API Key de Groq o conexión. ({e})"
                     st.write(respuesta)
             st.session_state.historial.append({"role": "assistant", "content": respuesta})
             datos, mime = audio_de_texto(respuesta, usar_cache=False)
@@ -786,7 +812,7 @@ elif resp_box is not None and st.session_state.responder_pendiente:
         try:
             respuesta = st.write_stream(stream_profesor(pregunta, st.session_state.slide, contexto))
         except Exception as e:
-            respuesta = f"El asistente no está disponible. Verifica que Ollama esté abierto. ({e})"
+            respuesta = f"El asistente no está disponible. Revisa tu API Key de Groq o conexión. ({e})"
             st.write(respuesta)
     st.session_state.historial.append({"role": "assistant", "content": respuesta})
     st.session_state.ultima_proy = (pregunta, respuesta)
@@ -806,4 +832,4 @@ with player_box:
 # ---- Precalentar la imagen de la siguiente lámina (ya con la pantalla dibujada) ----
 if st.session_state.slide < len(LAMINAS):
     _sig = LAMINAS[st.session_state.slide]
-    lamina_html(str(_sig), _sig.stat().st_mtime, "lamina-proy" if proy else "lamina-aula")
+    lamina_html(str(_sig), _sig.stat().st_mtime, "lamina-proy" if proy else "lamina-aula")  
