@@ -384,7 +384,7 @@ def stream_profesor(pregunta: str, n: int, historial: list):
             messages=mensajes,
             model=MODELO,
             temperature=0.1,
-            max_tokens=200,
+            max_tokens=800, 
             stream=True
         )
         
@@ -401,7 +401,7 @@ def verificar_groq():
         return "Falta la API Key de Groq. Ve a Settings > Secrets and variables > Codespaces y crea el secreto GROQ_API_KEY."
     
     try:
-        client = Groq() 
+        client = Groq(api_key=os.environ.get("GROQ_API_KEY_RUTAS"))  
         # Petición mínima para comprobar que la llave es válida
         client.chat.completions.create(
             messages=[{"role": "user", "content": "Hola"}],
