@@ -1,5 +1,5 @@
 streamlit
-grok
+groq 
 gTTS
 edge-tts
 SpeechRecognition
