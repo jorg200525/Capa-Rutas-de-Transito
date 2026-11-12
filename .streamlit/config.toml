@@ -1,0 +1,5 @@
+[server]
+pythonVersion = "3.11"
+
+[installer]
+installer = "pip"
