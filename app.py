@@ -375,7 +375,7 @@ def stream_profesor(pregunta: str, n: int, historial: list):
         yield "Error: Falta configurar la API Key de Groq en los Secrets de Codespaces."
         return
 
-    client = Groq()
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY_RUTAS"))  
     mensajes = construir_mensajes(pregunta, n, historial)
     
     try:
